@@ -1,155 +1,42 @@
-function getLearnerData(course, ag, submissions) {
-    // Validate input data
+import { fetchBreeds, fetchBreedImages } from './dogApi.js';
+
+document.addEventListener('DOMContentLoaded', async () => {
+    const breedSelect = document.getElementById('breedSelect');
+    const imageContainer = document.getElementById('imageContainer');
+
+    // Load breeds
     try {
-      if (ag.course_id !== course.id) {
-        throw new Error("Assignment Group does not belong to the specified Course.");
-      }
-  
-      if (!Array.isArray(submissions)) {
-        throw new Error("Submissions should be an array.");
-      }
-  
-      const currentDate = new Date();
-  
-      const results = [];
-      const learners = {}; // Temporary object to accumulate learner data
-  
-      for (const submission of submissions) {
-        const { learner_id, assignment_id, submission: subData } = submission;
-        const assignment = ag.assignments.find((a) => a.id === assignment_id);
-  
-        if (!assignment) {
-          console.warn(`Assignment with ID ${assignment_id} not found in Assignment Group.`);
-          continue;
-        }
-  
-        // Skip assignments not yet due
-        if (new Date(assignment.due_at) > currentDate) {
-          continue;
-        }
-  
-        // Validate points_possible
-        if (typeof assignment.points_possible !== "number" || assignment.points_possible <= 0) {
-          console.warn(`Invalid points_possible for assignment ID ${assignment_id}. Skipping.`);
-          continue;
-        }
-  
-        // Calculate score percentage, apply late penalty if needed
-        let score = subData.score;
-        if (new Date(subData.submitted_at) > new Date(assignment.due_at)) {
-          score = Math.max(score - 0.1 * assignment.points_possible, 0); // Deduct 10% late penalty
-        }
-  
-        const percentage = (score / assignment.points_possible) * 100;
-  
-        // Break if an anomaly in percentage is detected (example condition for using break)
-        if (percentage > 100) {
-          console.warn(`Score percentage exceeds 100% for learner ID ${learner_id}, assignment ID ${assignment_id}. Breaking.`);
-          break;
-        }
-  
-        // Initialize learner object if not already
-        if (!learners[learner_id]) {
-          learners[learner_id] = { id: learner_id, totalScore: 0, totalPossible: 0, assignments: {} };
-        }
-  
-        // Update learner's data
-        learners[learner_id].totalScore += score;
-        learners[learner_id].totalPossible += assignment.points_possible;
-        learners[learner_id].assignments[assignment_id] = parseFloat(percentage.toFixed(2));
-      }
-  
-      // Format results for output
-      for (const [learner_id, data] of Object.entries(learners)) {
-        results.push({
-          id: parseInt(learner_id),
-          avg: parseFloat(((data.totalScore / data.totalPossible) * 100).toFixed(2)),
-          ...data.assignments,
+        const breeds = await fetchBreeds();
+        breeds.forEach(breed => {
+            const option = document.createElement('option');
+            option.value = breed.id;
+            option.textContent = breed.name;
+            breedSelect.appendChild(option);
         });
-      }
-  
-      return results;
     } catch (error) {
-      console.error("Error processing data:", error.message);
-      return [];
+        console.error('Failed to load breeds:', error);
     }
-  }
-  
-  // Test the function
-  const CourseInfo = {
-    id: 451,
-    name: "Introduction to JavaScript",
-  };
-  
-  const AssignmentGroup = {
-    id: 12345,
-    name: "Fundamentals of JavaScript",
-    course_id: 451,
-    group_weight: 25,
-    assignments: [
-      {
-        id: 1,
-        name: "Declare a Variable",
-        due_at: "2023-01-25",
-        points_possible: 50,
-      },
-      {
-        id: 2,
-        name: "Write a Function",
-        due_at: "2023-02-27",
-        points_possible: 150,
-      },
-      {
-        id: 3,
-        name: "Code the World",
-        due_at: "3156-11-15",
-        points_possible: 500,
-      },
-    ],
-  };
-  
-  const LearnerSubmissions = [
-    {
-      learner_id: 125,
-      assignment_id: 1,
-      submission: {
-        submitted_at: "2023-01-25",
-        score: 47,
-      },
-    },
-    {
-      learner_id: 125,
-      assignment_id: 2,
-      submission: {
-        submitted_at: "2023-02-12",
-        score: 150,
-      },
-    },
-    {
-      learner_id: 125,
-      assignment_id: 3,
-      submission: {
-        submitted_at: "2023-01-25",
-        score: 400,
-      },
-    },
-    {
-      learner_id: 132,
-      assignment_id: 1,
-      submission: {
-        submitted_at: "2023-01-24",
-        score: 39,
-      },
-    },
-    {
-      learner_id: 132,
-      assignment_id: 2,
-      submission: {
-        submitted_at: "2023-03-07",
-        score: 140,
-      },
-    },
-  ];
-  
-  console.log(getLearnerData(CourseInfo, AssignmentGroup, LearnerSubmissions));
-  
+
+    // Handle breed selection
+    breedSelect.addEventListener('change', async (e) => {
+        const breedId = e.target.value;
+        if (!breedId) return;
+
+        try {
+            imageContainer.innerHTML = '<p class="loading">Loading images...</p>';
+            const images = await fetchBreedImages(breedId);
+            imageContainer.innerHTML = '';
+            
+            images.forEach(image => {
+                const img = document.createElement('img');
+                img.src = image.url;
+                img.alt = `${breedSelect.options[breedSelect.selectedIndex].text} image`;
+                img.classList.add('dog-image');
+                imageContainer.appendChild(img);
+            });
+        } catch (error) {
+            imageContainer.innerHTML = '<p class="error">Failed to load images</p>';
+            console.error('Image load error:', error);
+        }
+    });
+});
