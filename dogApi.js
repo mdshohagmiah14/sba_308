@@ -1,5 +1,3 @@
-
-// Fix 2: Replace with your actual API key from thedogapi.com
 const API_KEY = 'https://api.thedogapi.com/v1/images/search'; 
 
 export async function fetchBreeds() {
